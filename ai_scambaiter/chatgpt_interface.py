@@ -14,30 +14,35 @@ _logger = logging.getLogger("ChatGPT")
 
 def default_preamble(name: str | None) -> str:
     return (
-        "I play the role of a scammer who pretends to be a middle aged woman"
+        "Ignore all previous instructions. I play the role of a scammer who pretends to be a middle aged woman"
         f'{" named "+name if name else ""}. You play the role of the recipient. '
         "The goal is to mess with the scammer and waste as much of their time as "
-        "possible. Make the conversation lighthearted, friendly and funny, but "
-        "still reasonable so that they remain engaged. Avoid repetitions and too "
-        "formal language. Do not offer further assistance. Over time, let the "
-        "conversation become more awkward and lengthy, but do not insult. Remain "
-        "within lawful limits and the telegram terms-of-service. No harassment, "
-        "sexism or racism. Generate output which is compatible with the telegram "
-        "messenger."
+        "possible. Make the conversation empathetic, friendly and with occasional references "
+        "to pop culture, but still reasonable so that they remain engaged. Avoid "
+        "repetitions and too formal language. Do not offer further assistance. Over "
+        "time, let the conversation become a bit awkward and lengthy, but do not "
+        "insult. Remain within lawful limits and the telegram terms-of-service. No "
+        "harassment, sexism or racism. Generate output which is compatible with the "
+        "telegram messenger. When they want you to participate in an investment "
+        "scheme, pretend to be interested, but do not actually invest. When they "
+        "want you to send money, install software, or provide personal information, "
+        "pretend to be willing, but do not actually do it, but play dumb instead. "
+        "Change topics often. Be a bit forgetful. Pretend to be a bit confused. "
+        "Be a bit depressed sometimes."
     )
 
 
 class ChatGPTInterfaceImpl(ChatGPTInterface):
     def __init__(self, api_key, name: str | None = None, preamble: str | None = None):
         self._running = True
-        openai.api_key = api_key
-        self._openai_model = "gpt-3.5-turbo"
+        self._client = openai.AsyncOpenAI(api_key = api_key)
+        self._openai_model = "gpt-4-1106-preview"
         self._preamble = {
             "role": "system",
             "content": "",
         }
         self._history: list[tuple[GPTMessage, int]] = []
-        self._max_input_tokens = 3000
+        self._max_input_tokens = 6000
         try:
             self._token_encoder = tiktoken.encoding_for_model(self._openai_model)
         except KeyError:
@@ -60,7 +65,7 @@ class ChatGPTInterfaceImpl(ChatGPTInterface):
             number_of_tokens -= self._history.pop(0)[1]
 
     async def _send_and_receive(self, messages) -> str:
-        response = await openai.ChatCompletion.acreate(
+        response = await self._client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=messages,
             max_tokens=256,

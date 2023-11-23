@@ -20,7 +20,7 @@ class TelegramInterfaceImpl(TelegramInterface):
         self.api_id = api_id
         self.api_hash = api_hash
         self.chat_title = chat_title
-        self.chat_id = chat_id
+        self.chat_id = int(chat_id) if chat_id else None
         self.chat = None
         self.queue: asyncio.Queue[Message] = asyncio.Queue(maxsize=100)
 
