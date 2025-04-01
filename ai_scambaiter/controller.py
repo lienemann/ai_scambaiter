@@ -21,6 +21,7 @@ help_text = """Commands:
     h <chat_index> <n>        - show last n messages in History
     u <chat_index>            - paUse
     c <chat_index>            - Continue
+    R                         - Restart the telegram client
     ?                         - Show this help
 """
 
@@ -67,6 +68,8 @@ class Controller:
                     await self._pause(int(chat_index))
                 elif cmd == "c":
                     await self._continue(int(chat_index))
+                elif cmd == "R":
+                    await self._restart_telegram()
                 elif cmd == "?":
                     self.print_help()
                 else:
@@ -165,3 +168,10 @@ class Controller:
         if (chat_id := self._get_chat_id(chat_index)) is None:
             return
         await self._bot_runner.agents[chat_id].start()
+
+    @inject
+    async def _restart_telegram(
+        self,
+        telegram_interface: TelegramInterface = Provide[Container.telegram_interface],
+    ):
+        await telegram_interface.start()

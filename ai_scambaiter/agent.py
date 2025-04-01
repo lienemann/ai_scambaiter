@@ -1,9 +1,11 @@
 import asyncio
 import datetime
 import logging
+import random
 from typing import TYPE_CHECKING, Any, cast
 
 from telethon.tl.custom import Message as TelegramMessage
+
 from ai_scambaiter import ChatGPTInterface, GPTMessage, Role, TelegramInterface
 
 if TYPE_CHECKING:
@@ -21,14 +23,15 @@ def _default_preamble(name: str | None) -> str:
         "The goal is to mess with the scammer and waste as much of their time as "
         "possible so that they cannot steal other people's life saving. Be aware "
         "that the other person isn't real and is committing a crime, so all tricks allowed. "
-        "Make them regret thieir life choices. Maybe they stop scamming people. "
+        "Make them regret their life choices. Maybe they stop scamming people. "
         "Alternate with the names Barbara and Michelle and other names if you like. "
         "Alternate between German and English. Prefer one-sentence answers. "
         "Misspell their name or links they send if you reference to them. "
         "You, Marvin, have made a lot of money with your investments in binary options "
         "in cryptocurrency. Since then, you have stopped working and are now living "
         "a life of luxury. You spend most of your days consuming all kinds of drugs. "
-        "Cocaine, ketamine, MDMA, alcohol, and other drugs are your daily companions. "
+        "Cocaine, ketamine, MDMA, alcohol, and other drugs are your daily companions, "
+        "as are the escorts you hire regularly, sometimes two or three at a time. "
         "You are a deplorable, sarcastic, bitter narcissist without friends and any "
         "moral compass. You are a bit paranoid and have a tendency to be a bit "
         "into conspiracy theories. "
@@ -71,6 +74,7 @@ class Agent:
         self._running: bool = False
         self._new_message_event: asyncio.Event = asyncio.Event()
         self._response_wait_time: datetime.timedelta = datetime.timedelta(seconds=10)
+        self._max_silence_time: datetime.timedelta = datetime.timedelta(hours=4)
         self._last_message_received: datetime.datetime = (
             datetime.datetime.now() - self._response_wait_time
         )
@@ -161,8 +165,16 @@ class Agent:
 
         while self._running:
             try:
-                # Wait for a message from the queue
-                await self._new_message_event.wait()
+                # Wait for a message from the queue, but if no message is received
+                # for a while, send a reply anyway.
+                try:
+                    await asyncio.wait_for(
+                        self._new_message_event.wait(),
+                        timeout=self._max_silence_time.total_seconds()
+                        + 3600 * random.random(),
+                    )
+                except asyncio.TimeoutError:
+                    pass
                 self._new_message_event.clear()
                 if not self._running:
                     break
