@@ -174,16 +174,21 @@ class Agent:
                         + 3600 * random.random(),
                     )
                 except asyncio.TimeoutError:
-                    pass
+                    _logger.debug(
+                        "Silence timeout waiting for message. Sending reply anyway."
+                    )
                 self._new_message_event.clear()
                 if not self._running:
+                    _logger.debug("Stopping message processing loop.")
                     break
                 if reply_task:
+                    _logger.debug("Cancelling wait/reply task.")
                     reply_task.cancel()
                     try:
                         await reply_task
                     except asyncio.CancelledError:
                         pass
+                _logger.debug("Creating reply message.")
                 reply_task = asyncio.create_task(self._send_reply())
 
             except asyncio.CancelledError:
@@ -205,6 +210,9 @@ class Agent:
             [self._preamble] + self._chatgpt_history
         )
         _logger.info("Response from ChatGPT: %s", response)
+        if response is None:
+            _logger.error("No response from ChatGPT")
+            return
 
         # Do not add to history - we will receive it anyway via the telegram
         # interface

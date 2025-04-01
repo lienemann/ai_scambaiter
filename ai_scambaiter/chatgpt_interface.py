@@ -44,7 +44,7 @@ class ChatGPTInterfaceImpl(ChatGPTInterface):
         while number_of_tokens > self._max_input_tokens and history:
             number_of_tokens -= history.pop(0).n_tokens
 
-    async def send_and_receive(self, messages: Sequence[GPTMessage]) -> str:
+    async def send_and_receive(self, messages: Sequence[GPTMessage]) -> str | None:
         _logger.debug(
             "Request from ChatGPT with %i messages: %s",
             len(messages),
@@ -66,11 +66,28 @@ class ChatGPTInterfaceImpl(ChatGPTInterface):
                         role="assistant", content=m.content
                     )
                 )
-        response = await self._client.chat.completions.create(
-            model=self._openai_model,
-            messages=openai_messages,
-            max_completion_tokens=8000,
-            temperature=0.5,
-            n=1,
+        try:
+            response = await self._client.chat.completions.create(
+                model=self._openai_model,
+                messages=openai_messages,
+                max_completion_tokens=8000,
+                temperature=0.5,
+                n=1,
+            )
+        except Exception as e:
+            _logger.error("Error from ChatGPT: %s", e)
+            return None
+        if not response.choices:
+            _logger.error("No choices in response from ChatGPT")
+            return None
+        if response.choices[0].finish_reason != "stop":
+            _logger.error(
+                "ChatGPT stopped with reason: %s", response.choices[0].finish_reason
+            )
+            return None
+        _logger.debug(
+            "Response from ChatGPT with %i messages: %s",
+            len(response.choices),
+            response.choices[0].message.content if response.choices else None,
         )
         return response.choices[0].message.content or "Again?"
