@@ -1,4 +1,7 @@
 from __future__ import annotations
+from collections.abc import Sequence
+from enum import Enum, auto
+
 
 __version__ = "0.1.0"
 
@@ -11,27 +14,44 @@ if TYPE_CHECKING:
 
     from telethon.hints import TotalList
     from telethon.tl.custom import Message
+    from ai_scambaiter.agent import Agent
 
-GPTMessage = dict[str, str]
+
+class Role(Enum):
+    USER = auto()
+    ASSISTANT = auto()
+    SYSTEM = auto()
+
+
+@dataclass
+class GPTMessage:
+    content: str
+    role: Role
+    n_tokens: int
 
 
 class TelegramInterface(ABC):
     @abstractmethod
-    async def start(self):
+    async def start(self) -> None:
         raise NotImplementedError()
 
     @abstractmethod
     async def get_messages(
-        self, number_of_messages=100, oldest_first=False
-    ) -> TotalList[Message]:
+        self, chat_id: int, number_of_messages: int = 100, oldest_first: bool = False
+    ) -> TotalList:
+        raise NotImplementedError()
+
+    @property
+    @abstractmethod
+    def dialogs(self) -> dict[int, object]:
         raise NotImplementedError()
 
     @abstractmethod
-    async def send_message(self, message: str) -> None:
+    async def send_message(self, chat_id: int, message: str) -> None:
         raise NotImplementedError()
 
     @abstractmethod
-    async def delete_last_message(self):
+    async def delete_last_message(self, chat_id: int) -> None:
         raise NotImplementedError()
 
     @abstractmethod
@@ -43,63 +63,32 @@ class TelegramInterface(ABC):
         raise NotImplementedError()
 
 
-class ConversationStreamGenerator(ABC):
+class BotRunner(ABC):
+    @abstractmethod
+    async def run(self) -> None:
+        raise NotImplementedError()
+
     @abstractmethod
     async def start(self) -> None:
         raise NotImplementedError()
 
+    @property
     @abstractmethod
-    async def run(self):
-        raise NotImplementedError()
-
-    @abstractmethod
-    async def message_stream(self) -> AsyncIterator[list[GPTMessage]]:
-        raise NotImplementedError()
-
-    @abstractmethod
-    def get_history(self) -> list[GPTMessage]:
-        raise NotImplementedError()
-
-    @abstractmethod
-    async def generate_additional_message(self) -> None:
-        raise NotImplementedError()
-
-
-class BotRunner(ABC):
-    @abstractmethod
-    async def run(self):
+    def agents(self) -> dict[int, Agent]:
         raise NotImplementedError()
 
 
 class ChatGPTInterface(ABC):
     @abstractmethod
-    def set_history(self, history: list[GPTMessage]) -> None:
+    def number_of_tokens(self, text: str) -> int:
         raise NotImplementedError()
 
     @abstractmethod
-    def get_history(self, n: int | None) -> list[GPTMessage]:
+    def shorten_history(
+        self, n_preamble_tokens: int, history: list[GPTMessage]
+    ) -> None:
         raise NotImplementedError()
 
     @abstractmethod
-    async def generate_response(self, messages: list[GPTMessage]) -> str:
-        raise NotImplementedError()
-
-    @abstractmethod
-    def get_preamble(self) -> str:
-        raise NotImplementedError()
-
-    @abstractmethod
-    def set_preamble(self, preamble: str) -> None:
-        raise NotImplementedError()
-
-    @abstractmethod
-    def remove_last_assistant_message(self) -> None:
-        raise NotImplementedError()
-
-    @abstractmethod
-    def pause_replies(self) -> None:
-        raise NotImplementedError()
-
-    @abstractmethod
-    def resume_replies(self) -> None:
+    async def send_and_receive(self, messages: Sequence[GPTMessage]) -> str:
         raise NotImplementedError()

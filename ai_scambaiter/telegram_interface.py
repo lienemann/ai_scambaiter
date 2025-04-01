@@ -16,43 +16,46 @@ _logger = logging.getLogger("Telegram")
 
 
 class TelegramInterfaceImpl(TelegramInterface):
-    def __init__(self, api_id, api_hash, chat_title=None, chat_id=None):
+    def __init__(
+        self,
+        api_id: str | int,
+        api_hash: str,
+        phone: str,
+    ):
+        self.phone = phone
         self.api_id = api_id
         self.api_hash = api_hash
-        self.chat_title = chat_title
-        self.chat_id = int(chat_id) if chat_id else None
-        self.chat = None
         self.queue: asyncio.Queue[Message] = asyncio.Queue(maxsize=100)
+        self._dialogs: dict[int, object] = []
 
-        if not self.chat_title and not self.chat_id:
-            raise ValueError("Either chat_title or chat_id must be specified.")
-
-        self.client = TelegramClient("Session", api_id, api_hash)
+        self.client = TelegramClient("Session", int(api_id), api_hash)
         self.client.add_event_handler(self._on_new_message, events.NewMessage)
 
     async def start(self):
-        await self.client.start()
-        dialogs = await self.client.get_dialogs()
-        if self.chat_id:
-            self.chat = next(d for d in dialogs if d.id == self.chat_id)
-        else:
-            self.chat = next(d for d in dialogs if d.title == self.chat_title)
-            self.chat_id = self.chat.id
+        await self.client.start(phone=self.phone)  # type: ignore
+        self._dialogs = {d.id: d for d in await self.client.get_dialogs()}
+        _logger.info("Got %i chats", len(self._dialogs))
+
+    @property
+    def dialogs(self) -> dict[int, object]:
+        """Get all dialogs (chats) from the telegram client."""
+        return self._dialogs
 
     async def get_messages(
-        self, number_of_messages=100, oldest_first=True
-    ) -> TotalList[Message]:
+        self, chat_id: int, number_of_messages: int = 100, oldest_first: bool = True
+    ) -> TotalList:
         return await self.client.get_messages(
-            self.chat, limit=number_of_messages, reverse=oldest_first
+            self._dialogs[chat_id], limit=number_of_messages, reverse=oldest_first
         )
 
-    async def send_message(self, message: str):
-        _logger.info("Sending telegram message: %s", message)
-        await self.client.send_message(self.chat, message)
-        # print("** Please send message: " + message)
+    async def send_message(self, chat_id: int, message: str):
+        _logger.info("Sending telegram message to %i: %s", chat_id, message)
+        await self.client.send_message(self._dialogs[chat_id], message)
 
-    async def delete_last_message(self):
-        messages = await self.get_messages(number_of_messages=1, oldest_first=False)
+    async def delete_last_message(self, chat_id: int):
+        messages = await self.get_messages(
+            chat_id, number_of_messages=1, oldest_first=False
+        )
         if messages:
             await self.client.delete_messages(None, messages[0], revoke=True)
             _logger.info(
@@ -66,9 +69,4 @@ class TelegramInterfaceImpl(TelegramInterface):
             yield await self.queue.get()
 
     async def _on_new_message(self, event: events.NewMessage):
-        if event.message.chat_id != self.chat.id:
-            return
-        _logger.info(
-            "Got new message with id %i: %s", event.message.id, event.message.text
-        )
         await self.queue.put(event.message)

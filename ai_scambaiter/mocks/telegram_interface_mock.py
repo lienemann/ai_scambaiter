@@ -17,8 +17,8 @@ class TelegramInterfaceMock(TelegramInterfaceImpl):
         self.chat = Mock(id=1234567)
 
     async def get_messages(
-        self, number_of_messages=100, oldest_first=True
-    ) -> TotalList[Message]:
+        self, chat_id: int, number_of_messages: int = 100, oldest_first: bool = True
+    ) -> TotalList:
         def make_message(i):
             m = Message(i + 100)
             m.text = f"Message {i}"
@@ -27,8 +27,8 @@ class TelegramInterfaceMock(TelegramInterfaceImpl):
 
         return TotalList(make_message(i) for i in range(10))
 
-    async def send_message(self, message):
+    async def send_message(self, chat_id: int, message: str):
         print("Send message: " + message)
 
-    async def delete_last_message(self):
+    async def delete_last_message(self, chat_id: int):
         print("Delete last message")
