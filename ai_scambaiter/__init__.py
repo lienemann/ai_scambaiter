@@ -90,5 +90,5 @@ class ChatGPTInterface(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    async def send_and_receive(self, messages: Sequence[GPTMessage]) -> str:
+    async def send_and_receive(self, messages: Sequence[GPTMessage]) -> str | None:
         raise NotImplementedError()

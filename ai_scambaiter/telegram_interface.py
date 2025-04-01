@@ -50,7 +50,13 @@ class TelegramInterfaceImpl(TelegramInterface):
 
     async def send_message(self, chat_id: int, message: str):
         _logger.info("Sending telegram message to %i: %s", chat_id, message)
-        await self.client.send_message(self._dialogs[chat_id], message)
+        try:
+            msg = await self.client.send_message(self._dialogs[chat_id], message)
+            if not msg:
+                raise RuntimeError("Message not sent")
+        except Exception as e:
+            _logger.error("Error sending message to %i: %s", chat_id, e)
+            raise e
 
     async def delete_last_message(self, chat_id: int):
         messages = await self.get_messages(
